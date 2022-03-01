@@ -6,7 +6,7 @@ from config import pretrain_path, coordinates_cat, iou_threshs, window_nums_sum,
 import numpy as np
 from utils.AOLM import AOLM
 
-
+#coordinates为当前窗口尺寸切片的所有窗口坐标
 def nms(scores_np, proposalN, iou_threshs, coordinates):
     if not (type(scores_np).__module__ == 'numpy' and len(scores_np.shape) == 2 and scores_np.shape[1] == 1):
         raise TypeError('score_np is not right')
@@ -15,7 +15,8 @@ def nms(scores_np, proposalN, iou_threshs, coordinates):
     indices_coordinates = np.concatenate((scores_np, coordinates), 1)
 
     indices = np.argsort(indices_coordinates[:, 0])
-    indices_coordinates = np.concatenate((indices_coordinates, np.arange(0,windows_num).reshape(windows_num,1)), 1)[indices]                  #[339,6]
+    indices_coordinates = np.concatenate((indices_coordinates, np.arange(0, windows_num).reshape(windows_num, 1)), 1)[
+        indices]  # [339,6]
     indices_results = []
 
     res = indices_coordinates
@@ -25,7 +26,7 @@ def nms(scores_np, proposalN, iou_threshs, coordinates):
         indices_results.append(indice_coordinates[5])
 
         if len(indices_results) == proposalN:
-            return np.array(indices_results).reshape(1,proposalN).astype(np.int)
+            return np.array(indices_results).reshape(1, proposalN).astype(np.int)
         res = res[:-1]
 
         # Exclude anchor boxes with selected anchor box whose iou is greater than the threshold
@@ -44,6 +45,7 @@ def nms(scores_np, proposalN, iou_threshs, coordinates):
 
     return np.array(indices_results).reshape(1, -1).astype(np.int)
 
+
 class APPM(nn.Module):
     def __init__(self):
         super(APPM, self).__init__()
@@ -51,6 +53,7 @@ class APPM(nn.Module):
 
     def forward(self, proposalN, x, ratios, window_nums_sum, N_list, iou_threshs, DEVICE='cuda'):
         batch, channels, _, _ = x.size()
+        #得到窗口feature map
         avgs = [self.avgpools[i](x) for i in range(len(ratios))]
 
         # feature map sum
@@ -64,19 +67,24 @@ class APPM(nn.Module):
         proposalN_indices = []
         for i, scores in enumerate(windows_scores_np):
             indices_results = []
-            for j in range(len(window_nums_sum)-1):
-                indices_results.append(nms(scores[sum(window_nums_sum[:j+1]):sum(window_nums_sum[:j+2])], proposalN=N_list[j], iou_threshs=iou_threshs[j],
-                                           coordinates=coordinates_cat[sum(window_nums_sum[:j+1]):sum(window_nums_sum[:j+2])]) + sum(window_nums_sum[:j+1]))
+            for j in range(len(window_nums_sum) - 1):  #j表示不同的窗口尺寸切片
+                indices_results.append(
+                    nms(scores[sum(window_nums_sum[:j + 1]):sum(window_nums_sum[:j + 2])], proposalN=N_list[j],
+                        iou_threshs=iou_threshs[j],
+                        coordinates=coordinates_cat[sum(window_nums_sum[:j + 1]):sum(window_nums_sum[:j + 2])]) + sum(
+                        window_nums_sum[:j + 1]))
             # indices_results.reverse()
-            proposalN_indices.append(np.concatenate(indices_results, 1))   # reverse
+            proposalN_indices.append(np.concatenate(indices_results, 1))  # reverse
 
         proposalN_indices = np.array(proposalN_indices).reshape(batch, proposalN)
         proposalN_indices = torch.from_numpy(proposalN_indices).to(DEVICE)
         proposalN_windows_scores = torch.cat(
-            [torch.index_select(all_score, dim=0, index=proposalN_indices[i]) for i, all_score in enumerate(all_scores)], 0).reshape(
+            [torch.index_select(all_score, dim=0, index=proposalN_indices[i]) for i, all_score in
+             enumerate(all_scores)], 0).reshape(
             batch, proposalN)
 
         return proposalN_indices, proposalN_windows_scores, window_scores
+
 
 class MainNet(nn.Module):
     def __init__(self, proposalN, num_classes, channels):
@@ -96,13 +104,14 @@ class MainNet(nn.Module):
         # raw branch
         raw_logits = self.rawcls_net(embedding)
 
-        #SCDA
+        # SCDA
         coordinates = torch.tensor(AOLM(fm.detach(), conv5_b.detach()))
 
         local_imgs = torch.zeros([batch_size, 3, 448, 448]).to(DEVICE)  # [N, 3, 448, 448]
         for i in range(batch_size):
             [x0, y0, x1, y1] = coordinates[i]
-            local_imgs[i:i + 1] = F.interpolate(x[i:i + 1, :, x0:(x1+1), y0:(y1+1)], size=(448, 448),
+            #写成[i:i + 1]数组形式是为了获得切片
+            local_imgs[i:i + 1] = F.interpolate(x[i:i + 1, :, x0:(x1 + 1), y0:(y1 + 1)], size=(448, 448),
                                                 mode='bilinear', align_corners=True)  # [N, 3, 224, 224]
         local_fm, local_embeddings, _ = self.pretrained_model(local_imgs.detach())  # [N, 2048]
         local_logits = self.rawcls_net(local_embeddings)  # [N, 200]
@@ -116,9 +125,10 @@ class MainNet(nn.Module):
             for i in range(batch_size):
                 for j in range(self.proposalN):
                     [x0, y0, x1, y1] = coordinates_cat[proposalN_indices[i, j]]
-                    window_imgs[i:i + 1, j] = F.interpolate(local_imgs[i:i + 1, :, x0:(x1 + 1), y0:(y1 + 1)], size=(224, 224),
-                                                                mode='bilinear',
-                                                                align_corners=True)  # [N, 4, 3, 224, 224]
+                    window_imgs[i:i + 1, j] = F.interpolate(local_imgs[i:i + 1, :, x0:(x1 + 1), y0:(y1 + 1)],
+                                                            size=(224, 224),
+                                                            mode='bilinear',
+                                                            align_corners=True)  # [N, 4, 3, 224, 224]
 
             window_imgs = window_imgs.reshape(batch_size * self.proposalN, 3, 224, 224)  # [N*4, 3, 224, 224]
             _, window_embeddings, _ = self.pretrained_model(window_imgs.detach())  # [N*4, 2048]
@@ -128,3 +138,4 @@ class MainNet(nn.Module):
 
         return proposalN_windows_scores, proposalN_windows_logits, proposalN_indices, \
                window_scores, coordinates, raw_logits, local_logits, local_imgs
+

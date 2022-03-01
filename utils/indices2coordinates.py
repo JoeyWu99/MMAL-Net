@@ -1,5 +1,6 @@
 import numpy as np
-
+import warnings
+warnings.filterwarnings("ignore", category=Warning)
 def ComputeCoordinate(image_size, stride, indice, ratio):
     size = int(image_size / stride)
     column_window_num = (size - ratio[1]) + 1

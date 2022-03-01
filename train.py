@@ -13,7 +13,8 @@ from utils.auto_laod_resume import auto_load_resume
 from networks.model import MainNet
 
 import os
-
+import warnings
+warnings.filterwarnings("ignore", category=Warning)
 os.environ['CUDA_VISIBLE_DEVICES'] = CUDA_VISIBLE_DEVICES
 
 def main():
@@ -40,10 +41,10 @@ def main():
         lr = init_lr
 
     # define optimizers
-    optimizer = torch.optim.SGD(parameters, lr=lr, momentum=0.9, weight_decay=weight_decay)
+    optimizer = torch.optim.SGD(parameters, lr=lr, momentum=0.9, weight_decay=weight_decay) # weight_decay正则化系数
 
     model = model.cuda()  # 部署在GPU
-
+    #学习速率调整MultiStepLR，milestones为调整数组，gamma为倍率
     scheduler = MultiStepLR(optimizer, milestones=lr_milestones, gamma=lr_decay_rate)
 
     # 保存config参数信息

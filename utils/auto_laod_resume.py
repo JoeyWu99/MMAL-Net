@@ -3,9 +3,11 @@ import torch
 from config import init_lr
 from collections import OrderedDict
 
+#读取epoch
 def auto_load_resume(model, path, status):
     if status == 'train':
         pth_files = os.listdir(path)
+        #变成epoch数字数组
         nums_epoch = [int(name.replace('epoch', '').replace('.pth', '')) for name in pth_files if '.pth' in name]
         if len(nums_epoch) == 0:
             return 0, init_lr
@@ -14,9 +16,13 @@ def auto_load_resume(model, path, status):
             pth_path = os.path.join(path, 'epoch' + str(max_epoch) + '.pth')
             print('Load model from', pth_path)
             checkpoint = torch.load(pth_path)
+            #OrderedDict()有序输出字典
             new_state_dict = OrderedDict()
             for k, v in checkpoint['model_state_dict'].items():
-                name = k[7:]  # remove `module.`
+                if 'module.' == k[:7]:
+                    name = k[7:]  # remove `module.`
+                else:
+                    name = k
                 new_state_dict[name] = v
             model.load_state_dict(new_state_dict)
             epoch = checkpoint['epoch']

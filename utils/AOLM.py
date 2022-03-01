@@ -3,8 +3,11 @@ from skimage import measure
 
 
 def AOLM(fms, fm1):
+    #聚合得到activation map
     A = torch.sum(fms, dim=1, keepdim=True)
+    #求平均，[样本数N, 通道数C, 高度H, 宽度W]，求[2，3]维
     a = torch.mean(A, dim=[2, 3], keepdim=True)
+    #得到大于均值的Mask
     M = (A > a).float()
 
     A1 = torch.sum(fm1, dim=1, keepdim=True)
@@ -17,14 +20,14 @@ def AOLM(fms, fm1):
         mask_np = m.cpu().numpy().reshape(14, 14)
         component_labels = measure.label(mask_np)
 
+        #找到最大连通区域
         properties = measure.regionprops(component_labels)
         areas = []
         for prop in properties:
             areas.append(prop.area)
         max_idx = areas.index(max(areas))
 
-
-        intersection = ((component_labels==(max_idx+1)).astype(int) + (M1[i][0].cpu().numpy()==1).astype(int)) ==2
+        intersection = ((component_labels == (max_idx+1)).astype(int) + (M1[i][0].cpu().numpy()==1).astype(int)) ==2
         prop = measure.regionprops(intersection.astype(int))
         if len(prop) == 0:
             bbox = [0, 0, 14, 14]

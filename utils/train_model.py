@@ -18,10 +18,11 @@ def train(model,
           save_interval):
 
     for epoch in range(start_epoch + 1, end_epoch + 1):
+        #启用batch normalization和drop out
         model.train()
 
         print('Training %d epoch' % epoch)
-
+        #用next获取迭代器的下一条数据
         lr = next(iter(optimizer.param_groups))['lr']
 
         for i, data in enumerate(tqdm(trainloader)):
@@ -80,6 +81,10 @@ def train(model,
         print(
             'Test set: raw accuracy: {:.2f}%, local accuracy: {:.2f}%'.format(
                 100. * raw_accuracy, 100. * local_accuracy))
+
+        print(
+            'Test set: raw loss: {}, local loss: {}'.format(
+                raw_loss_avg, local_loss_avg))
 
         # tensorboard
         with SummaryWriter(log_dir=os.path.join(save_path, 'log'), comment='test') as writer:

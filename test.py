@@ -20,7 +20,7 @@ set = 'CUB'
 if set == 'CUB':
     root = './datasets/CUB_200_2011'  # dataset path
     # model path
-    pth_path = "./models/cub_epoch144.pth"
+    pth_path = "./models/cub_epoch44.pth"
     num_classes = 200
 elif set == 'Aircraft':
     root = './datasets/FGVC-aircraft'  # dataset path
